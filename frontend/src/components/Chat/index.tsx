@@ -2,10 +2,9 @@ import { useRef, useEffect } from "react";
 import { useChat } from "@/contexts/ChatContext";
 import { Message } from "@/components/Message";
 import { TypingIndicator } from "@/components/TypingIndicator";
-import { ErrorMessages } from "@/services/api/client";
 
 export function Chat() {
-  const { messages, status, sendMessage, error, isOnline } = useChat();
+  const { messages, status, sendMessage, isOnline } = useChat();
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -33,17 +32,6 @@ export function Chat() {
 
   return (
     <div className="h-screen flex flex-col">
-      {!isOnline && (
-        <div className="bg-red-100 text-red-800 p-2 text-center text-sm">
-          📡 Sem conexão com a internet
-        </div>
-      )}
-      {error && isOnline && (
-        <div className="bg-yellow-100 text-yellow-800 p-2 text-center text-sm">
-          {ErrorMessages[error.type] || "❌ Erro desconhecido."}
-        </div>
-      )}
-
       <div
         ref={messagesContainerRef}
         className="flex-1 overflow-auto p-4 bg-gray-50 dark:bg-black flex flex-col gap-2"

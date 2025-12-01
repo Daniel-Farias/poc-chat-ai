@@ -19,10 +19,9 @@ export type ErrorType =
   | "UNKNOWN";
 
 export interface ChatError {
-  [x: string]: string;
   type: ErrorType;
+  message?: string;
 }
-
 
 export enum ErrorMessages {
   NO_NETWORK = "📡 Sem conexão de rede.",
@@ -38,17 +37,19 @@ export class ChatClient {
   private es: EventSource | null = null;
   private timeout: number | null = null;
   private closedByClient = false;
+  private assistantMessage: ChatMessage | null = null;
 
   constructor(
-    private onMessage: (msg: ChatMessage) => void,
+    private onMessage: (msg: ChatMessage, replace?: boolean) => void,
     private onStatusChange: (status: ChatStatus["status"]) => void,
-    private onError: (err: ChatError) => void,
-  ) {}
+    private onError: (err: ChatError) => void
+  ) { }
 
   closeConnection() {
     this.closedByClient = true;
     this.es?.close();
     this.es = null;
+    this.assistantMessage = null;
     this.onStatusChange("idle");
     if (this.timeout) clearTimeout(this.timeout);
   }
@@ -90,21 +91,34 @@ export class ChatClient {
 
     this.es.onmessage = (event) => {
       this.startTimeout();
-      this.onStatusChange("streaming");
-      this.onMessage({ role: "assistant", content: event.data });
-    };
-
-    this.es.addEventListener("error", (event) => {
-      if ((event as MessageEvent).data) {
-        const data = JSON.parse((event as MessageEvent).data);
-        this.closeConnection();
-        if (data.type === "RATE_LIMIT") this.handleError("RATE_LIMIT");
-        else this.handleError("AI_ERROR");
+      if (!this.assistantMessage) {
+        this.assistantMessage = { role: "assistant", content: event.data };
+        this.onMessage(this.assistantMessage);
+        return;
       }
-    });
+
+      this.assistantMessage.content += event.data;
+      this.onMessage(this.assistantMessage, true);
+    };
 
     this.es.addEventListener("end", () => {
       this.closeConnection();
+    });
+
+    this.es.addEventListener("server-error", (e: MessageEvent) => {
+      try {
+        const payload = JSON.parse(e.data);
+        this.closeConnection();
+
+        if (payload.type === "RATE_LIMIT") {
+          this.handleError("RATE_LIMIT");
+        } else {
+          this.handleError("AI_ERROR");
+        }
+      } catch {
+        this.closeConnection();
+        this.handleError("AI_ERROR");
+      }
     });
 
     this.es.onerror = async () => {

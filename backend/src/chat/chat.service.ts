@@ -36,38 +36,20 @@ export class ChatService {
     this.history.push(userMessage);
     this.history = this.history.slice(-5);
 
-    const completion = await this.openai.chat.completions.create(
-      {
-        model: openAI.model,
-        messages: [systemPrompt, ...this.history],
-        stream: true,
-      },
-      {
-        timeout: 15000,
-      }
-    );
+    const completion = await this.openai.chat.completions.create({
+      model: openAI.model,
+      messages: [systemPrompt, ...this.history],
+      stream: true,
+    });
 
-    let buffer = '';
     let fullResponse = '';
 
     for await (const chunk of completion) {
       const text = chunk.choices[0]?.delta?.content;
       if (!text) continue;
 
-      buffer += text;
-
-      if (/[.!?\n]/.test(text)) {
-        const cleanChunk = buffer.replace(/\n+/g, ' ');
-        yield cleanChunk;
-        fullResponse += cleanChunk;
-        buffer = '';
-      }
-    }
-
-    if (buffer.length) {
-      const cleanChunk = buffer.replace(/\n+/g, ' ');
-      yield cleanChunk;
-      fullResponse += cleanChunk;
+      yield text;
+      fullResponse += text;
     }
 
     this.history.push({

@@ -1,12 +1,24 @@
-import { createContext, useCallback, useState, useContext, useRef, useEffect } from "react";
-import { ChatMessage, ChatStatus, ChatClient, ChatError } from "@/services/api/client";
+import {
+  createContext,
+  useCallback,
+  useState,
+  useContext,
+  useRef,
+  useEffect,
+} from "react";
+import {
+  ChatMessage,
+  ChatStatus,
+  ChatClient,
+  ChatError,
+} from "@/services/api/client";
 import initialMessages from "@/components/Chat/data/initialMensages.json";
 
 interface ChatContextData {
   messages: ChatMessage[];
   status: ChatStatus["status"];
   error: ChatError | null;
-  addMessage: (msg: ChatMessage) => void;
+  addMessage: (msg: ChatMessage, replace?: boolean) => void;
   clearChat: () => void;
   sendMessage: (msg: string) => void;
   isOnline: boolean;
@@ -21,7 +33,9 @@ const ChatContextProvider = createContext<ChatContextData>(
 );
 
 export function ChatProvider({ children }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages as unknown as ChatMessage[]);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    initialMessages as unknown as ChatMessage[]
+  );
   const [status, setStatus] = useState<ChatStatus["status"]>("idle");
   const [error, setError] = useState<ChatError | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -40,8 +54,16 @@ export function ChatProvider({ children }: Props) {
     };
   }, []);
 
-  const addMessage = useCallback((msg: ChatMessage) => {
-    setMessages((prev) => [...prev, msg]);
+  const addMessage = useCallback((msg: ChatMessage, replace = false) => {
+    setMessages((prev) => {
+      if (replace && prev.length) {
+        const updated = [...prev];
+        updated[updated.length - 1] = msg;
+        return updated;
+      }
+
+      return [...prev, msg];
+    });
   }, []);
 
   const clearChat = useCallback(() => {
@@ -54,13 +76,16 @@ export function ChatProvider({ children }: Props) {
   const sendMessage = useCallback(
     (msg: string) => {
       if (!isOnline) {
-        setError({ type: "NO_NETWORK", message: "📡 Sem conexão com a internet." });
+        setError({
+          type: "NO_NETWORK",
+          message: "📡 Sem conexão com a internet.",
+        });
         return;
       }
 
       if (!clientRef.current) {
         clientRef.current = new ChatClient(
-          addMessage,
+          (msg, replace) => addMessage(msg, replace),
           setStatus,
           (err) => setError(err)
         );
@@ -72,14 +97,27 @@ export function ChatProvider({ children }: Props) {
       try {
         clientRef.current.openStream(msg);
       } catch {
-        setError({ type: "AI_ERROR", message: "❌ Erro ao iniciar conexão com o servidor." });
+        setError({
+          type: "AI_ERROR",
+          message: "❌ Erro ao iniciar conexão com o servidor.",
+        });
       }
     },
     [addMessage, isOnline]
   );
 
   return (
-    <ChatContextProvider.Provider value={{ messages, status, error, addMessage, clearChat, sendMessage, isOnline }}>
+    <ChatContextProvider.Provider
+      value={{
+        messages,
+        status,
+        error,
+        addMessage,
+        clearChat,
+        sendMessage,
+        isOnline,
+      }}
+    >
       {children}
     </ChatContextProvider.Provider>
   );

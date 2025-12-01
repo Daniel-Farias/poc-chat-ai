@@ -9,7 +9,7 @@ import { ChatService } from './chat.service';
 
 @Controller('api/chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(private readonly chatService: ChatService) { }
 
   @Get()
   async chat(@Query('message') message: string, @Res() res: Response) {
@@ -35,20 +35,25 @@ export class ChatController {
       const stream = await this.chatService.streamAI(message);
 
       for await (const token of stream) {
-        res.write(`data: ${token}\n\n`);
+        const lines = token.split('\n');
+        for (const line of lines) {
+          res.write(`data: ${line}\n`);
+        }
+
+        res.write('\n');
       }
 
       res.write(`event: end\ndata: {}\n\n`);
       res.end();
     } catch (err) {
+      console.error(err);
       this.sendError(res, 'AI_ERROR', 'Error communicating with the AI.');
     }
   }
 
   private sendError(res: Response, type: string, message: string) {
-    res.write(
-      `event: error\ndata: ${JSON.stringify({ type, message })}\n\n`
-    );
+    res.write(`event: server-error\n`);
+    res.write(`data: ${JSON.stringify({ type, message })}\n\n`);
     res.write(`event: end\ndata: {}\n\n`);
     res.end();
   }
