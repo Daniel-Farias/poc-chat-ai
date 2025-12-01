@@ -1,0 +1,10 @@
+[
+  {
+    "role": "system",
+    "content": "Você iniciou a conversa"
+  },
+  {
+    "role": "assistant",
+    "content": "Olá! Como posso ajudar?"
+  }
+]
